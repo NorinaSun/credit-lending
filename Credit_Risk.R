@@ -62,7 +62,7 @@ train_Y <- train_processed.data$target_0
 test_Y <- train_processed.data$target_0
 
 #specifying model parameters
-objControl <- trainControl(method='cv', number=3, returnResamp='none', summaryFunction = twoClassSummary, classProbs = TRUE)
+objControl <- trainControl(method='cv', number=3, returnResamp='none', summaryFunction = twoClassSummary, classProbs = TRUE, sampling="up")
 
 #fitting the model
 model <- train(train_X, train_Y, method ="gbm", trControl=objControl, metric="ROC")
