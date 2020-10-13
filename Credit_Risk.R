@@ -22,7 +22,7 @@ to_predict = read.csv("/Users/NorinaSun/Downloads/MATH60603/CREDIT_RISK/CreditGa
 #creating a preprocessing function
 process <- function(df,df_type) {
   #replacing the empty string value in ST_EMPL
-  df$ST_EMPL[df$ST_EMPL==""]<-"Z"
+  df$ST_EMPL[df$ST_EMPL==""]<-NA
   
   #changing char variables to a factor
   df$TYP_RES <- as.factor(df$TYP_RES)
