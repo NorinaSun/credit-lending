@@ -3,7 +3,6 @@ library(caret)
 library(xgboost)
 library(dplyr)
 library(gbm)
-source("Age_Regressor.R")
 
 #load the training data
 train = read.csv("/Users/NorinaSun/Downloads/MATH60603/CREDIT_RISK/CreditGameData/CreditGame_TRAIN.csv")
@@ -22,9 +21,6 @@ to_predict = read.csv("/Users/NorinaSun/Downloads/MATH60603/CREDIT_RISK/CreditGa
 
 #creating a preprocessing function
 process <- function(df,df_type) {
-  
-  df <- impute_na(df,df_type)
-  
   #replacing the empty string value in ST_EMPL
   df$ST_EMPL[df$ST_EMPL==""]<-NA
   
@@ -34,6 +30,23 @@ process <- function(df,df_type) {
   
   #dropping type since its all auto
   df <- subset(df, select = -c(TYP_FIN))
+  
+  #doing variable engineering
+  #sum of deliquencies
+  df$sum_del <- df$NB_DEL_30 + df$NB_DEL_60 + df$NB_DEL_90
+  #assets - liabilities
+  df$netassets <- df$MNT_ACT - df$MNT_PASS
+  #revolving credit utilization
+  df$creditutil <- df$MNT_UTIL_REN/df$MNT_AUT_REN
+  #sum transactions refused
+  df$sumtransrefused <- df$NB_ER_6MS + df$NB_ER_12MS
+  #satisfactory transactions as percent of all transactions
+  df$transsatif <- df$NB_SATI/df$NB_OPER
+  #sum inquiries
+  df$suminquir <- df$NB_INTR_1M + df$NB_INTR_12M
+  #young person borrowing back
+  df$youngbacked <- ifelse(df$AGE_D < 25 & df$NB_EMPT > 1, 1,0)
+  df$youngbacked <- as.factor(df$youngbacked)
   
   if (df_type == "train"){
     #dropping the id column
@@ -65,7 +78,6 @@ test_X <- select(train_processed.data, -c(target_0))
 train_Y <- train_processed.data$target_0
 test_Y <- train_processed.data$target_0
 
-
 #specifying model parameters
 objControl <- trainControl(method='cv', number=3, returnResamp='none', summaryFunction = twoClassSummary, classProbs = TRUE, sampling="up")
 
@@ -88,6 +100,3 @@ good_loans = to_predict[to_predict$prediction == "no_default",]
 
 #saving the table
 write.csv(good_loans$ID_TEST,"/Users/NorinaSun/Downloads/MATH60603/CREDIT_RISK/CreditGameData/good_loans.csv")
-
-#saving the model
-saveRDS(model, "/Users/NorinaSun/Downloads/MATH60603/CREDIT_RISK/model_1.2.2.rds")
