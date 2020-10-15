@@ -3,6 +3,7 @@ library(caret)
 library(xgboost)
 library(dplyr)
 library(gbm)
+library(groupdata2)
 
 #load the training data
 train = read.csv("/Users/NorinaSun/Downloads/MATH60603/CREDIT_RISK/CreditGameData/CreditGame_TRAIN.csv")
@@ -51,6 +52,9 @@ process <- function(df,df_type) {
 #applying the processing
 train_processed <- process(train,"train")
 
+#upsampling the data
+train_processed <- upsample(train_processed, cat_col = "target_0")
+
 #split the data
 training.sample <- train_processed$target_0 %>% createDataPartition(p=0.8, list=FALSE)
 train_processed.data <- train_processed[training.sample,]
@@ -65,13 +69,13 @@ test_Y <- train_processed.data$target_0
 #training the model
 xgb <- xgboost(data = data.matrix(train_X[,-1]), 
                label = train_Y,
-               max_depth = 15,
-               nround = 25,
+               max_depth = 7,
+               nround = 100,
                subsample = 0.5,
                colsample_bytree = 0.5,
                eval_metric = "merror",
                objective = "multi:softmax",
-               num_class = 12
+               num_class = 2
                )
 
 #using the test set
