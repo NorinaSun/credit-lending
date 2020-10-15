@@ -27,33 +27,18 @@ process <- function(df,df_type) {
   #changing char variables to a factor
   df$TYP_RES <- as.factor(df$TYP_RES)
   df$ST_EMPL <- as.factor(df$ST_EMPL)
+  #dummy the factors
+  dummies = model.matrix(~.-1, data=train[,c("TYP_RES","ST_EMPL")])
+  #adding to the matrix
+  df <- cbind(df,dummies)
   
-  #dropping type since its all auto
-  df <- subset(df, select = -c(TYP_FIN))
+  #dropping type since its all auto + original variables
+  df <- subset(df, select = -c(TYP_FIN, TYP_RES, ST_EMPL))
   
-  #doing variable engineering
-  #sum of deliquencies
-  df$sum_del <- df$NB_DEL_30 + df$NB_DEL_60 + df$NB_DEL_90
-  #assets - liabilities
-  df$netassets <- df$MNT_ACT - df$MNT_PASS
-  #revolving credit utilization
-  df$creditutil <- df$MNT_UTIL_REN/df$MNT_AUT_REN
-  #sum transactions refused
-  df$sumtransrefused <- df$NB_ER_6MS + df$NB_ER_12MS
-  #satisfactory transactions as percent of all transactions
-  df$transsatif <- df$NB_SATI/df$NB_OPER
-  #sum inquiries
-  df$suminquir <- df$NB_INTR_1M + df$NB_INTR_12M
-  #young person borrowing back
-  df$youngbacked <- ifelse(df$AGE_D < 25 & df$NB_EMPT > 1, 1,0)
-  df$youngbacked <- as.factor(df$youngbacked)
   
   if (df_type == "train"){
     #dropping the id column
     df <- subset(df, select= -c(ID_TRAIN))
-    #changing target variable to a char
-    df$target_0 <- ifelse(df$target_0==1, 'defaulted','no_default')
-    df$target_0 <- as.factor(df$target_0)
   } else if (df_type == "test"){
     #dropping the id column
     df <- subset(df, select= -c(ID_TEST))
@@ -61,7 +46,6 @@ process <- function(df,df_type) {
     print("ok")
   }
   
-  return(df)
 }
 
 #applying the processing
@@ -78,25 +62,31 @@ test_X <- select(train_processed.data, -c(target_0))
 train_Y <- train_processed.data$target_0
 test_Y <- train_processed.data$target_0
 
-#specifying model parameters
-objControl <- trainControl(method='cv', number=3, returnResamp='none', summaryFunction = twoClassSummary, classProbs = TRUE, sampling="up")
-
-#fitting the model
-model <- train(train_X, train_Y, method ="gbm", trControl=objControl, metric="ROC")
+#training the model
+xgb <- xgboost(data = data.matrix(train_X[,-1]), 
+               label = train_Y,
+               max_depth = 15,
+               nround = 25,
+               subsample = 0.5,
+               colsample_bytree = 0.5,
+               eval_metric = "merror",
+               objective = "multi:softmax",
+               num_class = 12
+               )
 
 #using the test set
-test_predictions <- predict(object=model, test_X, type='raw')
+test_predictions <- predict(object=xgb, data.matrix(test_X[,-1]))
 postResample(pred=test_predictions, obs=as.factor(test_Y))
 
 #prediction with the final dataset
 to_predict_processed <- process(to_predict,"test")
-predictions_final <- predict(object=model, to_predict_processed, type='raw')
+predictions_final <- predict(object=xgb, data.matrix(to_predict_processed[,-1]))
 
 #adding the predictions to the dataframe
 to_predict$prediction <- predictions_final
 
 #taking just the yesses
-good_loans = to_predict[to_predict$prediction == "no_default",]
+good_loans = to_predict[to_predict$prediction == 0,]
 
 #saving the table
 write.csv(good_loans$ID_TEST,"/Users/NorinaSun/Downloads/MATH60603/CREDIT_RISK/CreditGameData/good_loans.csv")
