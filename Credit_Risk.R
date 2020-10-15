@@ -3,6 +3,7 @@ library(caret)
 library(xgboost)
 library(dplyr)
 library(gbm)
+source("Age_Regressor.R")
 
 #load the training data
 train = read.csv("/Users/NorinaSun/Downloads/MATH60603/CREDIT_RISK/CreditGameData/CreditGame_TRAIN.csv")
@@ -21,6 +22,9 @@ to_predict = read.csv("/Users/NorinaSun/Downloads/MATH60603/CREDIT_RISK/CreditGa
 
 #creating a preprocessing function
 process <- function(df,df_type) {
+  
+  df <- impute_na(df,df_type)
+  
   #replacing the empty string value in ST_EMPL
   df$ST_EMPL[df$ST_EMPL==""]<-NA
   
@@ -50,19 +54,17 @@ process <- function(df,df_type) {
 #applying the processing
 train_processed <- process(train,"train")
 
-# #split the data
-# training.sample <- train_processed$target_0 %>% createDataPartition(p=0.8, list=FALSE)
-# train_processed.data <- train_processed[training.sample,]
-# train_processed.data <- train_processed[-training.sample,]
-# 
-# train_X <- select(train_processed.data, -c(target_0))
-# test_X <- select(train_processed.data, -c(target_0))
-# 
-# train_Y <- train_processed.data$target_0
-# test_Y <- train_processed.data$target_0
+#split the data
+training.sample <- train_processed$target_0 %>% createDataPartition(p=0.8, list=FALSE)
+train_processed.data <- train_processed[training.sample,]
+train_processed.data <- train_processed[-training.sample,]
 
-train_X <- select(train_processed, -c(target_0))
-train_Y <- train_processed$target_0
+train_X <- select(train_processed.data, -c(target_0))
+test_X <- select(train_processed.data, -c(target_0))
+
+train_Y <- train_processed.data$target_0
+test_Y <- train_processed.data$target_0
+
 
 #specifying model parameters
 objControl <- trainControl(method='cv', number=3, returnResamp='none', summaryFunction = twoClassSummary, classProbs = TRUE, sampling="up")
@@ -70,9 +72,9 @@ objControl <- trainControl(method='cv', number=3, returnResamp='none', summaryFu
 #fitting the model
 model <- train(train_X, train_Y, method ="gbm", trControl=objControl, metric="ROC")
 
-# #using the test set
-# test_predictions <- predict(object=model, test_X, type='raw')
-# postResample(pred=test_predictions, obs=as.factor(test_Y))
+#using the test set
+test_predictions <- predict(object=model, test_X, type='raw')
+postResample(pred=test_predictions, obs=as.factor(test_Y))
 
 #prediction with the final dataset
 to_predict_processed <- process(to_predict,"test")
@@ -86,3 +88,6 @@ good_loans = to_predict[to_predict$prediction == "no_default",]
 
 #saving the table
 write.csv(good_loans$ID_TEST,"/Users/NorinaSun/Downloads/MATH60603/CREDIT_RISK/CreditGameData/good_loans.csv")
+
+#saving the model
+saveRDS(model, "/Users/NorinaSun/Downloads/MATH60603/CREDIT_RISK/model_1.2.2.rds")
